@@ -1,28 +1,24 @@
-// Copyright 2023 Elloramir.
+// Copyright 2025 Elloramir.
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-#include "os.h"
-#include "render.h"
+#include "system.h"
+#include "renderer.h"
 
 int entry_point ( void ) {
-	os_create_window(800, 600, "TinyBox Engine");
-	render_init();
+	system_create_window(800, 600, "Neko");
+	renderer_init();
 
-	Font *roboto = render_load_font("data/roboto.ttf", 32);
-	// Image cat = render_load_image("data/cat.jpg");
-
-	while (!os_window_should_close()) {
-		if (os_window_is_visible()) {
-			render_frame();
-			render_set_image(roboto->atlas);
-			render_set_color((Color){ 1, 1, 1, 1 });
-			render_push_quad(0.f, 0.f, 600.f, 600.f, 0.f, 1.f, 0.f, 1.f);
-			render_flush();
-			os_swap_buffers();
+	while (!system_window_should_close()) {
+		if (system_window_is_visible()) {
+			renderer_frame();
+			renderer_set_color((Color){ 1, 0, 0, 1 });
+			renderer_push_quad(0.f, 0.f, 250.f, 250.f, 0.f, 1.f, 0.f, 1.f);
+			renderer_flush();
+			system_swap_buffers();
 		}
 		else {
-			os_sleep(17);
+			system_sleep(1);
 		}
 	}
 	return 0;

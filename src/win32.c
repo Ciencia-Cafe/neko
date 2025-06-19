@@ -1,10 +1,11 @@
-// Copyright 2023 Elloramir.
+// Copyright 2025 Elloramir.
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-#include "os.h"
-#include "opengl.h"
 #include <assert.h>
+
+#include "system.h"
+#include "opengl.h"
 
 #define X(type, name) type name;
 GL_FUNCTIONS(X)
@@ -21,7 +22,7 @@ self = { 0 };
 
 
 // Display a message box with an error text
-void os_panic(const char* message) {
+void system_panic(const char* message) {
 	MessageBoxA(NULL, message, "Error", MB_ICONEXCLAMATION);
 	ExitProcess(0);
 }
@@ -54,7 +55,7 @@ static void debug_callback(
 		if (IsDebuggerPresent()) {
 			assert(!"OpenGL error - check the callstack in debugger");
 		}
-		os_panic(message);
+		system_panic(message);
 	}
 }
 #endif
@@ -93,14 +94,14 @@ static void load_gl( void ) {
 
 	int32_t format = ChoosePixelFormat(dc, &desc);
 	if (!format) {
-		os_panic("Cannot choose OpenGL pixel format for dummy window!");
+		system_panic("Cannot choose OpenGL pixel format for dummy window!");
 	}
 
 	int32_t ok = DescribePixelFormat(dc, format, sizeof(desc), &desc);
 	assert(ok && "Failed to describe OpenGL pixel format");
 
 	if (!SetPixelFormat(dc, format, &desc)) {
-		os_panic("Cannot set OpenGL pixel format for dummy window!");
+		system_panic("Cannot set OpenGL pixel format for dummy window!");
 	}
 
 	HGLRC rc = wglCreateContext(dc);
@@ -117,7 +118,7 @@ static void load_gl( void ) {
 	wglSwapIntervalEXT = (void*)wglGetProcAddress("wglSwapIntervalEXT");
 
 	if (!wglChoosePixelFormatARB || !wglCreateContextAttribsARB || !wglSwapIntervalEXT) {
-		os_panic("OpenGL does not support required WGL extensions for modern context!");
+		system_panic("OpenGL does not support required WGL extensions for modern context!");
 	}
 
 	wglMakeCurrent(NULL, NULL);
@@ -126,7 +127,7 @@ static void load_gl( void ) {
 	DestroyWindow(dummy);
 }
 
-void os_create_window(int32_t width, int32_t height, const char *name) {
+void system_create_window(int32_t width, int32_t height, const char *name) {
 	assert(self.win_handler == NULL && "Window already created");
 
 	// Register window class to have custom WindowProc callback
@@ -163,6 +164,7 @@ void os_create_window(int32_t width, int32_t height, const char *name) {
 			WGL_DOUBLE_BUFFER_ARB,  GL_TRUE,
 			WGL_PIXEL_TYPE_ARB,     WGL_TYPE_RGBA_ARB,
 			WGL_COLOR_BITS_ARB,     24,
+			WGL_ALPHA_BITS_ARB,     8,
 			WGL_DEPTH_BITS_ARB,     24,
 			WGL_STENCIL_BITS_ARB,   8,
 
@@ -180,7 +182,7 @@ void os_create_window(int32_t width, int32_t height, const char *name) {
 		int32_t format;
 		UINT formats;
 		if (!wglChoosePixelFormatARB(self.device_ctx, attrib, NULL, 1, &format, &formats) || formats == 0) {
-			os_panic("OpenGL does not support required pixel format!");
+			system_panic("OpenGL does not support required pixel format!");
 		}
 
 		PIXELFORMATDESCRIPTOR desc = { .nSize = sizeof(desc) };
@@ -188,7 +190,7 @@ void os_create_window(int32_t width, int32_t height, const char *name) {
 		assert(ok && "Failed to describe OpenGL pixel format");
 
 		if (!SetPixelFormat(self.device_ctx, format, &desc)) {
-			os_panic("Cannot set OpenGL selected pixel format!");
+			system_panic("Cannot set OpenGL selected pixel format!");
 		}
 	}
 
@@ -207,7 +209,7 @@ void os_create_window(int32_t width, int32_t height, const char *name) {
 
 		HGLRC rc = wglCreateContextAttribsARB(self.device_ctx, NULL, attrib);
 		if (!rc) {
-			os_panic("Cannot create modern OpenGL context! OpenGL version 4.5 not supported?");
+			system_panic("Cannot create modern OpenGL context! OpenGL version 4.5 not supported?");
 		}
 		self.gl_ctx = rc;
 
@@ -231,7 +233,7 @@ void os_create_window(int32_t width, int32_t height, const char *name) {
 	ShowWindow(self.win_handler, SW_SHOWDEFAULT);
 }
 
-bool os_window_should_close() {
+bool system_window_should_close() {
 	MSG msg;
 	if (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
 		if (msg.message == WM_QUIT) {
@@ -244,7 +246,7 @@ bool os_window_should_close() {
 	return false;
 }
 
-vec2 os_window_size() {
+vec2 system_window_size() {
 	RECT rect;
 	GetClientRect(self.win_handler, &rect);
 	int32_t width = rect.right - rect.left;
@@ -253,22 +255,22 @@ vec2 os_window_size() {
 	return (vec2){ .x = (float)width, .y = (float)height };
 }
 
-bool os_window_is_visible() {
-	vec2 size = os_window_size();
+bool system_window_is_visible() {
+	vec2 size = system_window_size();
 	return size.x != 0 && size.y != 0;
 }
 
-void os_swap_buffers() {
+void system_swap_buffers() {
 	if (!SwapBuffers(self.device_ctx)) {
-		os_panic("Failed to swap OpenGL buffers!");
+		system_panic("Failed to swap OpenGL buffers!");
 	}
 }
 
-void os_sleep(uint32_t miliseconds) {
+void system_sleep(uint32_t miliseconds) {
 	Sleep(miliseconds);
 }
 
-void *os_load_file(const char *filename) {
+void *system_load_file(const char *filename) {
 	HANDLE file = CreateFileA(
 		filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (file == INVALID_HANDLE_VALUE) {
@@ -298,36 +300,11 @@ void *os_load_file(const char *filename) {
 	return data;
 }
 
-void os_free_file(void *data) {
-	free(data);
-}
-
-void os_show_cursor(bool show) {
-	ShowCursor(show);
-}
-
-void os_set_cursor_position(int32_t x, int32_t y) {
-	POINT point = { .x = x, .y = y };
-	ClientToScreen(self.win_handler, &point);
-	SetCursorPos(point.x, point.y);
-}
-
-void os_close_window() {
+void system_close_window() {
 	DestroyWindow(self.win_handler);
 	self.win_handler = NULL;
 }
 
-void os_quit() {
-	PostQuitMessage(0);
-}
-
-void os_set_window_title(const char *title) {
-	SetWindowTextW(self.win_handler, utf8_to_utf16(title));
-}
-
-void os_set_window_icon(const char *filename) {
-	(void)filename;
-}
 
 // Entry point defined by the user
 int32_t entry_point ( void );

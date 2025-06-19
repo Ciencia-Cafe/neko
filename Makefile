@@ -1,14 +1,25 @@
-CC = clang
+CC = gcc
+CFLAGS = --std=c99 -Wall -Wextra -DGL_DEBUG
 
-CFLAGS  = --std=c99 -Wall -Wextra -DGL_DEBUG
-LDFLAGS = -lgdi32 -lopengl32
+OUT  = neko
+OBJ  = \
+	src/main.o     \
+	src/math.o     \
+	src/renderer.o 
 
-SRC  = $(wildcard src/*.c)
-OBJ  = $(SRC:.c=.o)
-OUT  = tinybox
+ifeq ($(OS),Windows_NT)
+    LDFLAGS = -lgdi32 -lopengl32
+	OBJ += src/win32.o
+else
+	LDFLAGS = -lGL -lGLU -lX11
+	OBJ += src/x11.o
+endif
 
 build: $(OBJ)
 	$(CC) -o $(OUT) $^ $(LDFLAGS)
 
 %.o: %.c
 	$(CC) -o $@ -c $< $(CFLAGS)
+
+clean:
+	rm -f $(OBJ) $(OUT)

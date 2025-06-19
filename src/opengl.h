@@ -1,9 +1,9 @@
-// Copyright 2023 Elloramir.
+// Copyright 2025 Elloramir.
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-#ifndef TINYBOX_OPENGL_H
-#define TINYBOX_OPENGL_H
+#ifndef NEKO_OPENGL_H
+#define NEKO_OPENGL_H
 
 #include <inttypes.h>
 
@@ -13,7 +13,26 @@
 #define GL_MAJOR 3
 #define GL_MINOR 3
 
-#if defined(_WIN32) || defined(_WIN64)
+#if defined(__linux__) || defined(__unix__)
+#include <GL/glx.h>
+
+// GLX extension constants
+#define GLX_CONTEXT_MAJOR_VERSION_ARB 0x2091
+#define GLX_CONTEXT_MINOR_VERSION_ARB 0x2092
+#define GLX_CONTEXT_PROFILE_MASK_ARB 0x9126
+#define GLX_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
+#define GLX_CONTEXT_FLAGS_ARB 0x2094
+#define GLX_CONTEXT_DEBUG_BIT_ARB 0x0001
+
+// Make sure we have GLX 1.3+ constants
+#ifndef GLX_SAMPLE_BUFFERS
+#define GLX_SAMPLE_BUFFERS 0x186a0
+#endif
+#ifndef GLX_SAMPLES
+#define GLX_SAMPLES 0x186a1
+#endif
+
+#elif defined(_WIN32) || defined(_WIN64)
 #include <windows.h>
 
 #define WGL_DRAW_TO_WINDOW_ARB 0x2001
@@ -31,6 +50,7 @@
 #define WGL_CONTEXT_FLAGS_ARB 0x2094
 #define WGL_CONTEXT_DEBUG_BIT_ARB 0x0001
 #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+#define WGL_ALPHA_BITS_ARB 0x201B
 
 typedef const char * (*PFNWGLGETEXTENSIONSSTRINGARBPROC)(HDC hdc);
 typedef BOOL (*PFNWGLCHOOSEPIXELFORMATARBPROC)(HDC hdc, const int32_t* piAttribIList, const FLOAT* pfAttribFList, UINT nMaxFormats, int32_t* piFormats, UINT* nNumFormats);
@@ -42,6 +62,7 @@ static PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribsARB = NULL;
 static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = NULL;
 #endif
 
+// OpenGL constants
 #define GL_FALSE 0
 #define GL_TRUE 1
 #define GL_FLOAT 0x1406
@@ -80,6 +101,7 @@ static PFNWGLSWAPINTERVALEXTPROC wglSwapIntervalEXT = NULL;
 #define GL_NEAREST 0x2600
 #define GL_ARRAY_BUFFER_BINDING 0x8894
 
+// OpenGL type definitions
 typedef uint32_t GLenum;
 typedef uint32_t GLuint32;
 typedef uint8_t GLboolean;
@@ -93,7 +115,7 @@ typedef uintptr_t GLintptr;
 typedef float GLfloat;
 typedef uint8_t GLubyte;
 
-// OpenGL 1.0 functions
+// OpenGL 1.0 functions (available through system OpenGL)
 void glEnable(GLenum cap);
 void glBlendFunc(GLenum sfactor, GLenum dfactor);
 void glViewport(GLint x, GLint y, GLsizei width, GLsizei height);
@@ -106,12 +128,11 @@ const GLubyte *glGetString(GLenum name);
 void glActiveTexture(GLenum texture);
 void glTexParameteri(GLenum target, GLenum pname, GLint param);
 void glGenTextures(GLsizei n, GLuint *textures);
-void glBindTexture(GLenum target, GLuint texture);
 void glTexImage2D(GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, GLint border, GLenum format, GLenum type, const void *pixels);
 void glDeleteTextures(GLsizei n, const GLuint *textures);
 void glDrawElements(GLenum mode, GLsizei count, GLenum type, const void *indices);
 
-// OpenGL 3.3 functions
+// OpenGL 3.3+ function pointer types
 typedef void (*PFNGLBINDVERTEXARRAYPROC)(GLuint array);
 typedef GLuint (*PFNGLCREATESHADERPROGRAMVPROC)(GLenum type, GLsizei count, const GLchar* const* strings);
 typedef void (*PFNGLGETPROGRAMINFOLOGPROC)(GLuint program, GLsizei bufSize, GLsizei* length, GLchar* infoLog);
@@ -139,7 +160,7 @@ typedef void (*PFNGLGENVERTEXARRAYSPROC)(GLsizei n, GLuint* arrays);
 typedef void (*PFNGLUNIFORMMATRIX4FVPROC)(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
 typedef GLint (*PFNGLGETUNIFORMLOCATIONPROC)(GLuint program, const GLchar* name);
 
-
+// Macro to define all OpenGL function pointers
 #define GL_FUNCTIONS(X) \
 	X(PFNGLBINDVERTEXARRAYPROC, glBindVertexArray) \
 	X(PFNGLCREATESHADERPROGRAMVPROC, glCreateShaderProgramv) \
@@ -168,6 +189,7 @@ typedef GLint (*PFNGLGETUNIFORMLOCATIONPROC)(GLuint program, const GLchar* name)
 	X(PFNGLUNIFORMMATRIX4FVPROC, glUniformMatrix4fv) \
 	X(PFNGLGETUNIFORMLOCATIONPROC, glGetUniformLocation)
 
+// Declare all OpenGL function pointers
 #define X(type, name) extern type name;
 GL_FUNCTIONS(X)
 #undef X

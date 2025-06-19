@@ -1,19 +1,21 @@
-// Copyright 2023 Elloramir.
+// Copyright 2025 Elloramir.
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-#include "os.h"
-#include "render.h"
-#include "opengl.h"
-#include "common.h"
-#define STBI_NO_THREAD_LOCALS
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
 #include <stdio.h>
 #include <inttypes.h>
 #include <assert.h>
+
+#include "system.h"
+#include "renderer.h"
+#include "opengl.h"
+#include "common.h"
+
+#define STBI_NO_THREAD_LOCALS
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb/stb_truetype.h"
+#include "stb/stb_image.h"
 
 #define ATTRIB_POSITION   0
 #define ATTRIB_COLOR      1
@@ -58,10 +60,10 @@ static struct
 }
 self = { 0 };
 
-void render_init() {
+void renderer_init() {
 	// Create the pixel image
-	self.pixel = render_mem_image(1, 1, (uint8_t[]){255, 255, 255, 255});
-	render_set_image(self.pixel);
+	self.pixel = renderer_mem_image(1, 1, (uint8_t[]){255, 255, 255, 255});
+	renderer_set_image(self.pixel);
 
 	// Default color as white
 	self.hot_color = WHITE;
@@ -103,9 +105,9 @@ void render_init() {
 	assert(self.proj_view_loc != -1);
 }
 
-void render_frame() {
+void renderer_frame() {
 	// TODO(ellora): to fix, this is the frame size not the window...
-	vec2 w_size = os_window_size();
+	vec2 w_size = system_window_size();
 	mat4 view = math_mat4_identity();
 	mat4 proj = math_mat4_ortho(0.f, w_size.x, w_size.y, 0.f, -1.f, 1.f);
 	self.proj_view = math_mat4_mul(proj, view);
@@ -117,7 +119,7 @@ void render_frame() {
 	glEnable(GL_BLEND);
 }
 
-void render_flush() {
+void renderer_flush() {
 	if (self.curr_quad == 0) {
 		return;
 	}
@@ -150,82 +152,31 @@ void render_flush() {
 	self.curr_vert = 0;
 }
 
-void render_set_color(Color c) {
+void renderer_set_color(Color c) {
 	self.hot_color = c;
 }
 
-void render_set_image(Image i) {
+void renderer_set_image(Image i) {
 	if (i.id != self.hot_image.id) {
-		render_flush();
+		renderer_flush();
 	}
 
 	self.hot_image = i;
 }
 
-// TODO(ellora): Remade whole function
-Font *render_load_font(const char *filename, int32_t size) {
-	Font *f = calloc(sizeof(Font), 1);
-	void *ttf = os_load_file(filename);
-	assert(stbtt_InitFont(&f->stbfont, ttf, 0));
-	// Create the font atlas (rect pack)
-	int32_t atlas_width = 512;
-	int32_t atlas_height = 512;
-	stbrp_context pack_ctx;
-	stbrp_node nodes[300];
-	stbrp_init_target(&pack_ctx, atlas_width, atlas_height, nodes, 300);
-	uint8_t *atlas = calloc(atlas_width * atlas_height, 1);
-	// Initialize glyphs
-	f->glyphs = calloc(sizeof(stbtt_bakedchar), 300);
-	// Create SDF glyphs
-	for (int32_t i = 0; i < 300; i++) {
-		int32_t w, h, xoff, yoff;
-		float scale = stbtt_ScaleForPixelHeight(&f->stbfont, size);
-		uint8_t *sdf = stbtt_GetGlyphSDF(&f->stbfont, scale, i, 5, 128.f, 24.f, &w, &h, &xoff, &yoff);
-		if (sdf == NULL) continue;
-		// Pack the glyph
-		stbrp_rect r = {.w = w, .h = h};
-		stbrp_pack_rects(&pack_ctx, &r, 1);
-		// Set the glyph data
-		f->glyphs[i].x0 = r.x;
-		f->glyphs[i].x1 = r.x + w;
-		f->glyphs[i].y0 = r.y;
-		f->glyphs[i].y1 = r.y + h;
-		f->glyphs[i].xoff = xoff;
-		f->glyphs[i].yoff = yoff;
-		f->glyphs[i].xadvance = 0;
-		// Copy the glyph to the atlas
-		for (int32_t y = 0; y < h; y++)
-			memcpy(atlas + (r.y + y) * atlas_width + r.x, sdf + y * w, w);
-		free(sdf);
-	}
-	// Create openGL texture
-	f->atlas.width = atlas_width;
-	f->atlas.height = atlas_height;
-	glGenTextures(1, &f->atlas.id);
-	glBindTexture(GL_TEXTURE_2D, f->atlas.id);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlas_width, atlas_height, 0, GL_RED, GL_UNSIGNED_BYTE, atlas);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glBindTexture(GL_TEXTURE_2D, 0);
-
-	free(atlas);
-	free(ttf);
-	return f;
-}
-
-Image render_load_image(const char *filename) {
+Image renderer_load_image(const char *filename) {
 	int32_t w, h, n;
 	uint8_t *pixels = stbi_load(filename, &w, &h, &n, 4); // Force RGBA
 	if (pixels == NULL) {
-		os_panic("Could't load image");
+		system_panic("Could't load image");
 	}
-	Image img = render_mem_image(w, h, pixels);
+	Image img = renderer_mem_image(w, h, pixels);
 	stbi_image_free(pixels);
 
 	return img;
 }
 
-Image render_mem_image(int32_t width, int32_t height, const uint8_t *pixels) {
+Image renderer_mem_image(int32_t width, int32_t height, const uint8_t *pixels) {
 	Image img = { .id = 0, .width = width, .height = height };
 
 	glGenTextures(1, &img.id);
@@ -239,9 +190,9 @@ Image render_mem_image(int32_t width, int32_t height, const uint8_t *pixels) {
 	return img;
 }
 
-void render_push_quad(float x1, float y1, float x2, float y2, float u0, float u1, float v0, float v1) {
+void renderer_push_quad(float x1, float y1, float x2, float y2, float u0, float u1, float v0, float v1) {
 	if (self.curr_quad >= MAX_QUADS) {
-		render_flush();
+		renderer_flush();
 	}
 
 	self.vertices[self.curr_vert++] = make_v(x1, y1, u0, v0);
